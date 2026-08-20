@@ -6,6 +6,5 @@ faiss-cpu==1.8.0
 groq==1.6.0
 python-dotenv==1.0.1
 numpy==1.26.4
-packagingrequests==2.32.3
 requests==2.32.3
-packaging
+packaging==24.2
