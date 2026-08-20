@@ -1,10 +1,25 @@
+# Secrets — never commit
 .env
+.env.local
+
+# Python
 __pycache__/
 *.pyc
 *.pyo
+*.egg-info/
 .venv/
 venv/
-*.egg-info/
-dist/
+
+# Runtime-generated data (rebuilds automatically)
+logs/
+
+# NOTE: vector_store/ is intentionally NOT ignored.
+# It's built once via scripts/rebuild_index.py using the Gemini API
+# and must be committed so the deployed app has a search index to use.
+
+# OS / editor
 .DS_Store
-.vercel
+.vscode/
+
+# Vercel
+.vercel/
