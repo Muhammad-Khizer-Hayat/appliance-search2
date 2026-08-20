@@ -200,7 +200,12 @@ def search(raw_query: str, products: list[dict], index=None) -> dict:
         if lo is not None and hi is not None:
             price_hint = "No products found between **PKR " + f"{lo:,}" + "** and **PKR " + f"{hi:,}" + "**. "
         elif hi is not None:
-            price_hint = "No products found under **PKR " + f"{hi:,}" + "**. Our lowest price is around **PKR 9,500**. "
+            cheapest = _cheapest_price(products, safe_query)
+            if cheapest is not None:
+                price_hint = ("No products found under **PKR " + f"{hi:,}" + "**. "
+                              "Our lowest price is around **PKR " + f"{cheapest:,}" + "**. ")
+            else:
+                price_hint = "No products found under **PKR " + f"{hi:,}" + "**. "
         elif lo is not None:
             price_hint = "No products found above **PKR " + f"{lo:,}" + "**. "
         else:
@@ -212,6 +217,39 @@ def search(raw_query: str, products: list[dict], index=None) -> dict:
             [])
 
     return _resp(safe_query, qtype, None, results, kw_hits, vec_hits)
+
+
+_CATEGORY_KEYWORDS = {
+    "Air Conditioner": ["ac", "air", "cool", "ton", "inverter"],
+    "Refrigerator":    ["fridge", "refrigerator", "freezer", "frost"],
+    "Washing Machine": ["wash", "laundry", "washer", "kg"],
+    "Microwave Oven":  ["microwave", "oven", "grill"],
+    "Water Dispenser": ["dispenser", "water"],
+}
+
+
+def _cheapest_price(products: list[dict], query: str) -> int | None:
+    """
+    Returns the cheapest price in the category the query seems to be
+    about (if detectable), else the cheapest price across all products.
+    Used to give an accurate 'lowest price' hint instead of a hardcoded
+    stale number.
+    """
+    q = query.lower()
+    detected_category = None
+    for category, keywords in _CATEGORY_KEYWORDS.items():
+        if any(w in q for w in keywords):
+            detected_category = category
+            break
+
+    pool = products
+    if detected_category:
+        scoped = [p for p in products if p["category"] == detected_category]
+        if scoped:
+            pool = scoped
+
+    prices = [p["price_pkr"] for p in pool if p.get("price_pkr", 0) > 0]
+    return min(prices) if prices else None
 
 
 def _suggest_category(query: str) -> str:

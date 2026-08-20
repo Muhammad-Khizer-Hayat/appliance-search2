@@ -1,20 +1,29 @@
 """
 Manages shop links (Daraz, Amazon, custom) for each product.
-All links stored in data/product_links.json — no extra DB needed.
+Links are committed to data/product_links.json for normal (Railway/
+local) deployment. On serverless platforms (Vercel), the filesystem
+is read-only except /tmp, so admin edits write to /tmp instead —
+they'll be visible for the lifetime of that warm function instance,
+but won't persist across cold starts or deploys. For a serverless
+deployment where admin edits must persist, move this to an external
+store (e.g. a small hosted DB) instead.
 """
 import os
 import json
 import threading
 
-_LINKS_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "product_links.json")
+_REPO_LINKS_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "product_links.json")
+_IS_SERVERLESS   = bool(os.getenv("VERCEL"))
+_LINKS_PATH      = "/tmp/product_links.json" if _IS_SERVERLESS else _REPO_LINKS_PATH
 _lock = threading.Lock()
 
 
 def _load() -> dict:
-    if not os.path.exists(_LINKS_PATH):
+    path = _LINKS_PATH if os.path.exists(_LINKS_PATH) else _REPO_LINKS_PATH
+    if not os.path.exists(path):
         return {}
     try:
-        with open(_LINKS_PATH, "r", encoding="utf-8") as f:
+        with open(path, "r", encoding="utf-8") as f:
             return json.load(f)
     except Exception:
         return {}

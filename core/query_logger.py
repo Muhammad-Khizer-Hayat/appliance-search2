@@ -1,13 +1,20 @@
 """
 Lightweight SQLite query logger.
-Writes every search + metadata to logs/queries.db.
+Writes every search + metadata to logs/queries.db locally.
+On serverless platforms (Vercel), the filesystem is read-only except
+/tmp, so writes go there instead — logs won't persist between cold
+starts, which is expected and fine (this is analytics, not core data).
 """
 import os
 import sqlite3
 import time
 import threading
 
-_DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "logs", "queries.db")
+_IS_SERVERLESS = bool(os.getenv("VERCEL"))
+_LOG_DIR = "/tmp" if _IS_SERVERLESS else os.path.join(
+    os.path.dirname(os.path.dirname(__file__)), "logs"
+)
+_DB_PATH = os.path.join(_LOG_DIR, "queries.db")
 _lock    = threading.Lock()
 
 

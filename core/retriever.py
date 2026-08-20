@@ -161,8 +161,13 @@ def _parse_price_filter(query: str) -> tuple:
     # Number pattern: digits optionally followed by 'k'
     _N = r"(\d+(?:\.\d+)?k?)"
 
+    # Common filler words people naturally use between a price keyword
+    # and the actual number — e.g. "under the 12000", "above a budget of 50k",
+    # "under rs 80000", "under my budget of 30k".
+    _FILL = r"(?:\s+(?:the|a|my|is|of|for|rs\.?|pkr))*"
+
     # 'between X and Y'  or  'between X to Y'
-    between = re.search(rf"between\s+{_N}\s+(?:and|to)\s+{_N}", q)
+    between = re.search(rf"between{_FILL}\s+{_N}\s+(?:and|to){_FILL}\s+{_N}", q)
     if between:
         lo, hi = _to_int(between.group(1)), _to_int(between.group(2))
         return min(lo, hi), max(lo, hi)
@@ -173,9 +178,9 @@ def _parse_price_filter(query: str) -> tuple:
         lo, hi = _to_int(to_range.group(1)), _to_int(to_range.group(2))
         return min(lo, hi), max(lo, hi)
 
-    above  = re.search(rf"above\s+{_N}",  q)
-    under  = re.search(rf"under\s+{_N}",  q)
-    budget = re.search(rf"(?:price|budget|range)\s+(?:is\s+|of\s+)?{_N}", q)
+    above  = re.search(rf"above{_FILL}\s+{_N}",  q)
+    under  = re.search(rf"under{_FILL}\s+{_N}",  q)
+    budget = re.search(rf"(?:price|budget|range){_FILL}\s+{_N}", q)
 
     lo = _to_int(above.group(1))  if above  else None
     hi = _to_int(under.group(1))  if under  else (_to_int(budget.group(1)) if budget else None)
