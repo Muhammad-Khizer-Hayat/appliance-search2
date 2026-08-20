@@ -19,8 +19,10 @@ VECTOR_STORE_DIR  = os.path.join(BASE_DIR, "vector_store")
 FAISS_INDEX_PATH  = os.path.join(VECTOR_STORE_DIR, "faiss_index.bin")
 PRODUCTS_PKL_PATH = os.path.join(VECTOR_STORE_DIR, "products.pkl")
 
-# ── Embedding ─────────────────────────────────────────
-EMBEDDING_MODEL = "all-MiniLM-L6-v2"
+# ── Embedding (Gemini API — replaces local sentence-transformers/torch) ──
+GEMINI_API_KEY         = os.getenv("GEMINI_API_KEY", "")
+GEMINI_EMBEDDING_MODEL  = "gemini-embedding-001"
+GEMINI_EMBEDDING_DIM    = 768   # good balance of quality vs storage for a 190-product catalog
 
 # ── Search weights ────────────────────────────────────
 # How much each source contributes to the final hybrid score
