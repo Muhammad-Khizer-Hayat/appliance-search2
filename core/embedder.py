@@ -24,7 +24,7 @@ def _post_with_retry(url: str, payload: dict) -> dict:
         try:
             response = requests.post(
                 url,
-                params={"key": GEMINI_API_KEY},
+                headers={"x-goog-api-key": GEMINI_API_KEY},
                 json=payload,
                 timeout=30,
             )
@@ -90,7 +90,6 @@ def encode_texts(texts: list[str]) -> np.ndarray:
         print(f"[embedder] Encoded {min(start + _BATCH_SIZE, len(texts))}/{len(texts)}")
 
     arr = np.array(all_vectors, dtype="float32")
-    # Normalise each row so cosine similarity == dot product (matches old sentence-transformers behaviour)
     norms = np.linalg.norm(arr, axis=1, keepdims=True)
     norms[norms == 0] = 1
     arr = arr / norms
