@@ -169,6 +169,18 @@ if (searchInput) searchInput.addEventListener('keydown', e => {
   if (e.key === 'Enter') runSearch();
 });
 
+// ── Image search (upload a photo of an appliance) ─────
+const imageBtn   = el('imageBtn');
+const imageInput = el('imageInput');
+if (imageBtn && imageInput) {
+  imageBtn.addEventListener('click', () => imageInput.click());
+  imageInput.addEventListener('change', () => {
+    const file = imageInput.files && imageInput.files[0];
+    if (file) runImageSearch(file);
+    imageInput.value = '';   // allow re-selecting the same file later
+  });
+}
+
 async function runSearch() {
   const inp   = el('searchInput');
   const query = inp ? inp.value.trim() : '';
@@ -212,51 +224,115 @@ async function runSearch() {
       return;
     }
 
-    // Spell correction notice
-    const fixes = data.spell_correction || [];
-    if (fixes.length > 0) {
-      el('spellNoticeText').textContent =
-        `Corrected: ${fixes.join(', ')} → searching for "${data.query}"`;
-      el('spellNotice').classList.remove('d-none');
-    } else {
-      el('spellNotice').classList.add('d-none');
-    }
-
-    // Cache hit notice
-    if (data.from_cache) {
-      el('cacheNotice').classList.remove('d-none');
-    } else {
-      el('cacheNotice').classList.add('d-none');
-    }
-
-    const stepCount = ['greeting','off_topic','unclear'].includes(data.query_type) ? 2 : 5;
-    animatePipelineSteps(stepCount);
-
-    allResults    = data.results || [];
-    lastQueryType = data.query_type;
-    setSearchLoading(false);
-
-    if (data.message) {
-      showMessageBanner(data.message, data.query_type);
-      return;
-    }
-
-    hideBanner();
-    updateStats(data);
-    updateFilters();
-    show('advFilterCard');
-    show('sortCard');
-    render(filteredSortedResults());
-
-    if (allResults.length > 0) {
-      const label = data.query_type === 'product_id' ? '📋 Product Summary' : '✨ AI Recommendation';
-      streamAIAnswer(data.query, data.query_type, allResults, label);
-    }
+    handleSearchResultData(data);
 
   } catch (err) {
     setSearchLoading(false);
     showError(`Request failed: ${err.message || err}`);
     console.error('[runSearch error]', err);
+  }
+}
+
+// ── Shared result handling (used by both text search and image search) ──
+function handleSearchResultData(data) {
+  // Spell correction notice
+  const fixes = data.spell_correction || [];
+  if (fixes.length > 0) {
+    el('spellNoticeText').textContent =
+      `Corrected: ${fixes.join(', ')} → searching for "${data.query}"`;
+    el('spellNotice').classList.remove('d-none');
+  } else {
+    el('spellNotice').classList.add('d-none');
+  }
+
+  // Cache hit notice
+  if (data.from_cache) {
+    el('cacheNotice').classList.remove('d-none');
+  } else {
+    el('cacheNotice').classList.add('d-none');
+  }
+
+  const stepCount = ['greeting','off_topic','unclear'].includes(data.query_type) ? 2 : 5;
+  animatePipelineSteps(stepCount);
+
+  allResults    = data.results || [];
+  lastQueryType = data.query_type;
+  setSearchLoading(false);
+
+  if (data.message) {
+    showMessageBanner(data.message, data.query_type);
+    return;
+  }
+
+  hideBanner();
+  updateStats(data);
+  updateFilters();
+  show('advFilterCard');
+  show('sortCard');
+  render(filteredSortedResults());
+
+  if (allResults.length > 0) {
+    const label = data.query_type === 'product_id' ? '📋 Product Summary' : '✨ AI Recommendation';
+    streamAIAnswer(data.query, data.query_type, allResults, label);
+  }
+}
+
+// ── Image search: upload a photo, Gemini vision identifies it, then we
+//    run the exact same search pipeline as text search ──
+async function runImageSearch(file) {
+  if (!file) return;
+
+  resetAll();
+  setSearchLoading(true);
+  resetPipeline();
+
+  const formData = new FormData();
+  formData.append('image', file);
+
+  try {
+    const res = await fetch('/api/image-search', {
+      method: 'POST',
+      body:   formData,   // no Content-Type header — browser sets multipart boundary
+    });
+
+    let data;
+    try { data = await res.json(); }
+    catch (_) {
+      setSearchLoading(false);
+      showError(`Server returned non-JSON response (status ${res.status}).`);
+      return;
+    }
+
+    if (!res.ok) {
+      setSearchLoading(false);
+      const msg    = data.error  || 'Image search failed';
+      const detail = data.detail || '';
+      const lines  = detail ? detail.split('\n').filter(Boolean).slice(-4).join('\n') : '';
+      showError(`${msg}${lines ? '\n\n' + lines : ''}`);
+      return;
+    }
+
+    // Not a recognisable appliance (still a 200 with a friendly message)
+    if (data.error === 'not_an_appliance') {
+      setSearchLoading(false);
+      showMessageBanner(data.message, 'unclear');
+      return;
+    }
+
+    // Show what the AI detected, and mirror it into the search box + URL
+    if (data.image_caption) {
+      const inp = el('searchInput');
+      if (inp) inp.value = data.image_caption;
+      syncPlaceholder();
+      pushSearchUrl(`[image] ${data.image_caption}`);
+    }
+
+    handleSearchResultData(data);
+
+  } catch (err) {
+    setSearchLoading(false);
+    showError(`Image search request failed: ${err.message || err}`);
+    console.error('[runImageSearch error]', err);
   }
 }
 

@@ -11,6 +11,7 @@ from core.cache import cache_get, cache_set, cache_stats
 from core.query_logger import log_query, get_stats
 from core.spell_correct import correct_query
 from core.links_store import get_all_links
+from core.vision import describe_appliance_image
 
 search_bp = Blueprint("search", __name__)
 
@@ -117,6 +118,105 @@ def api_search():
 
         log_query(query, result["query_type"], len(serialised), elapsed_ms,
                   corrected=corrected_query if was_corrected else "")
+
+        return jsonify(payload)
+
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"error": str(e), "detail": traceback.format_exc()}), 500
+
+
+# ── Route 1b: Image search (upload photo -> Gemini vision -> existing pipeline) ──
+_ALLOWED_EXT = {".jpg", ".jpeg", ".png", ".webp"}
+
+@search_bp.route("/api/image-search", methods=["POST"])
+def api_image_search():
+    ip = request.remote_addr or "unknown"
+    if _is_rate_limited(ip):
+        return jsonify({"error": "Rate limit exceeded. Please wait a moment."}), 429
+
+    try:
+        if "image" not in request.files:
+            return jsonify({"error": "No image file uploaded"}), 400
+
+        file = request.files["image"]
+        if not file.filename:
+            return jsonify({"error": "No image file selected"}), 400
+
+        mime_type = file.mimetype or "application/octet-stream"
+        image_bytes = file.read()
+
+        if not image_bytes:
+            return jsonify({"error": "Uploaded image is empty"}), 400
+
+        # Step 1: describe the image using Gemini vision -> short search phrase
+        try:
+            derived_query = describe_appliance_image(image_bytes, mime_type)
+        except ValueError as ve:
+            if str(ve) == "NOT_AN_APPLIANCE":
+                return jsonify({
+                    "error": "not_an_appliance",
+                    "message": "🖼️ That doesn't look like a home appliance we sell "
+                               "(AC, fridge, washing machine, microwave, or water "
+                               "dispenser). Try a clearer photo or use text search.",
+                }), 200
+            return jsonify({"error": str(ve)}), 400
+
+        # Step 2: run the derived text through the EXACT same search pipeline
+        # used by /api/search, so results/ranking/filters all stay consistent.
+        products = current_app.products
+        index    = current_app.faiss_index
+
+        t0         = time.perf_counter()
+        result     = search(raw_query=derived_query, products=products, index=index)
+        elapsed_ms = round((time.perf_counter() - t0) * 1000)
+
+        all_links  = get_all_links()
+        serialised = []
+        for p in result["results"]:
+            qtype    = result.get("query_type", "")
+            is_exact = qtype in (QueryType.PRODUCT_ID, QueryType.MODEL_NUM)
+            combined  = p.get("_combined_score",  1.0 if is_exact else 0.0)
+            retriever = p.get("_retriever_score", 1.0 if is_exact else 0.0)
+            faiss     = p.get("_faiss_score",     0.0)
+
+            serialised.append({
+                "product_id":      p.get("product_id",      ""),
+                "name":            p.get("product_name",    ""),
+                "brand":           p.get("brand",           ""),
+                "category":        p.get("category",        ""),
+                "model":           p.get("model_number",    ""),
+                "capacity":        p.get("capacity",        ""),
+                "energy_rating":   p.get("energy_rating",   ""),
+                "price":           int(p.get("price_pkr",       0)),
+                "warranty":        int(p.get("warranty_years",  0)),
+                "color":           p.get("color",           ""),
+                "features":        p.get("key_features",    ""),
+                "stock_status":    p.get("stock_status",    ""),
+                "description":     p.get("description",     ""),
+                "retriever_score": round(retriever, 4),
+                "faiss_score":     round(faiss,     4),
+                "combined_score":  round(combined,  4),
+                "shop_links":      all_links.get(p.get("product_id", ""), {}),
+            })
+
+        payload = {
+            "query":            derived_query,
+            "original_query":   f"[image] {derived_query}",
+            "query_type":       result["query_type"],
+            "message":          result["message"],
+            "result_count":     len(serialised),
+            "keyword_hits":     result.get("keyword_hits", 0),
+            "vector_hits":      result.get("vector_hits",  0),
+            "elapsed_ms":       elapsed_ms,
+            "results":          serialised,
+            "from_cache":       False,
+            "spell_correction": [],
+            "image_caption":    derived_query,   # so the UI can show "we detected: ..."
+        }
+
+        log_query(f"[image] {derived_query}", result["query_type"],
+                  len(serialised), elapsed_ms)
 
         return jsonify(payload)
 
