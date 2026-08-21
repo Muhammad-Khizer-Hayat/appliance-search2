@@ -526,3 +526,97 @@
 
 /* Admin sidebar nav badge */
 .sidebar .badge { font-size: 10px; }
+
+/* ═══════════════════════════════════════════════════════
+   RESPONSIVE — TABLET (≤ 991px, below Bootstrap lg)
+   ═══════════════════════════════════════════════════════ */
+@media (max-width: 991.98px) {
+  .container-xl { padding-left: 16px; padding-right: 16px; }
+
+  /* Sidebar (filters/stats/sort) already stacks full-width via col-lg-3,
+     just tighten its spacing so it doesn't feel like a separate desktop block */
+  .col-lg-3 .card { margin-bottom: 12px; }
+}
+
+/* ═══════════════════════════════════════════════════════
+   RESPONSIVE — MOBILE (≤ 767px, below Bootstrap md)
+   ═══════════════════════════════════════════════════════ */
+@media (max-width: 767.98px) {
+
+  /* Navbar: let brand + actions wrap instead of squeezing/overflowing */
+  .navbar .container-xl {
+    flex-wrap: wrap;
+    row-gap: 8px;
+  }
+  .navbar-brand { font-size: 15px; }
+  .navbar .ms-auto { gap: 8px !important; }
+  #compareBtn span,
+  .badge.bg-primary-subtle { font-size: 11px; }
+
+  /* Hero padding */
+  .search-hero .container-xl.py-4 { padding-top: 16px; padding-bottom: 16px; }
+
+  /* Title row: stack heading above the cache/spell badges instead of squeezing side-by-side */
+  .search-hero .d-flex.align-items-center.justify-content-between.mb-3 {
+    flex-wrap: wrap;
+    row-gap: 8px;
+  }
+  .search-hero h1.h4 { font-size: 19px; }
+  .search-hero p.small { font-size: 12.5px; }
+
+  /* ── Search box: this is the main overflow culprit ──
+     Shrink paddings/icons and drop the "Search" label text down to icon-only
+     so icon + input + clear + voice + submit all fit on a narrow screen. */
+  .search-box {
+    padding: 4px 4px 4px 12px;
+    border-radius: 12px;
+  }
+  .search-input,
+  .search-placeholder { font-size: 14px; }
+  .search-placeholder { left: 34px; }
+  .search-action-btn { width: 30px; height: 30px; font-size: 14px; }
+  .search-submit-btn {
+    padding: 7px 12px;
+    font-size: 0;         /* hide the "Search" text node */
+    border-radius: 8px;
+  }
+  .search-submit-btn i { font-size: 15px; margin-right: 0 !important; }
+  .search-divider { height: 18px; }
+
+  /* Dropdown panel: cap height a bit lower so it doesn't dominate a short screen */
+  .search-dropdown { max-height: 280px; }
+
+  /* Chip rows: allow label + chips to wrap cleanly, shrink chip text slightly */
+  .chip-label { width: 100%; margin-bottom: 2px; }
+  .badge-chip { font-size: 11px; padding: 4px 10px; }
+
+  /* Pipeline steps: shrink so all 5 steps don't force horizontal scroll */
+  .pipe-step { font-size: 11px; padding: 3px 9px; }
+
+  /* Result cards: single column already via col-sm-6 col-xl-4 at <576px,
+     but tighten card padding + list view so content doesn't feel cramped */
+  .product-card .card-body,
+  .product-card .p-3 { padding: 12px !important; }
+  .list-view .card-grid-body {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  /* AI answer / compare / message banners: reduce icon+gap so text has more room */
+  #messageBanner, #aiAnswer, #compareAnswer { gap: 10px !important; padding: 12px; }
+
+  /* Results header (view toggle) shrink */
+  #resultsHeader .btn-sm { padding: 4px 8px; }
+}
+
+/* ═══════════════════════════════════════════════════════
+   RESPONSIVE — SMALL PHONE (≤ 420px)
+   ═══════════════════════════════════════════════════════ */
+@media (max-width: 420px) {
+  .search-hero h1.h4 { font-size: 17px; }
+  .search-box { padding: 3px 3px 3px 10px; gap: 4px; }
+  .search-input, .search-placeholder { font-size: 13px; }
+  .search-placeholder { left: 28px; }
+  .badge-chip { font-size: 10.5px; padding: 3px 8px; }
+  .score-bar-wrap { width: 56px; }
+}
